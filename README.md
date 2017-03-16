@@ -12,6 +12,12 @@ A automatic aquarium refiller with extra fallout detection.
 * 16x2 I2c Display
 * Arduino nano
 * Current sensor
-* 
+* GSM Module (eg SIM800L)
+
+
+
+# SOFTWARE
+
+*http://cristiansteib.github.io/Sim800l
 
 
