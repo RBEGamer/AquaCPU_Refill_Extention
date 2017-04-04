@@ -30,7 +30,7 @@ A automatic aquarium refiller with extra fallout detection.
 * Time failsafe
 * Pump fail detection failsafe
 * Esay Tank setup
-
+* Sensor state failsafe
 
 
 # SOFTWARE
