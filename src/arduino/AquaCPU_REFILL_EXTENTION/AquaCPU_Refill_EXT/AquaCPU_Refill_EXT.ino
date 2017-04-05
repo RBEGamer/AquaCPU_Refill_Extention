@@ -3,34 +3,44 @@
  * https://github.com/fdebrabander/Arduino-LiquidCrystal-I2C-library
  * ACS712 CODE http://blog.thesen.eu 
  */
-#define VERSION "0.3b"
+#define VERSION "1.0a"
 
 #include <EEPROM.h>
-#define ENABLE_ERROR_MANUAL_RESET //if you enable this you habe to reset the system with the 
-
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
+//#include <mcp_can.h>
+#include <SPI.h>
+
+//MCP_CAN CAN0(10);     // Set CS to pin 10
+bool CAN_SETUP_SUCC = false;
+
+
 
 //TANK SETTINGS
-#define WATER_FLOW_RATE_ML_S 2.2f //IN ML PER SECOND
-#define WATER_REFILL_TANK_SIZE_L 4500 // MLiter
-#define WATER_REFILL_TANK_SIZE_MULTIPLIER 1.05f
+float WATER_FLOW_RATE_ML_S = 2.0f; //IN ML PER SECOND
+float WATER_REFILL_TANK_SIZE_L = 4.5f; // MLiter
+float WATER_REFILL_TANK_SIZE_MULTIPLIER =  1.05f;
 //PIN SETTINGS
 #define LEVEL_SENSOR_BOTTOM_PIN 6
 #define LEVEL_SENSOR_TOP_PIN 7
 #define ERROR_RESET_PIN 8
 #define PART_FILLED_PIN 4
 #define VALVE_PIN 3
+#define NOT_OFF_PIN 5
+#define CONFIG_MODE_PIN A3
 //PIN INVERT SETTINGS
 #define INVERT_LEVEL_SENSOR_BOTTOM
 #define INVERT_LEVEL_SENSOR_TOP
 //#define INVERT_VALVE_STATE
-
 //VALVE SETTINGS
-#define AUTO_OFF_CURRENT_MIDDLE 10.0f //WATT Alles als Stromverbrauch unter 10 Watt wird als error ausgeben
+float AUTO_OFF_CURRENT_MIDDLE = 10.0f; //WATT Alles als Stromverbrauch unter 10 Watt wird als error ausgeben
 //SENSOR SETTINGS
 #define ACS712_30A //#define ACS712_5A //#define ACS712_20A //please set this to you ACS model (5,20,30A)
-
+//DISPLAY SETTINGS
+#define ENABLE_I2C_DSIPLAY //if you have connect a 16x2 I2C Display
+#define I2C_DISPLAY_ADDR 0x27 //set the I2C Adress of the display (eg use a i2c scanner)
+//ERROR SETTINGS
+#define ENABLE_ERROR_MANUAL_RESET //if you enable this you have to reset the system with the FIX ERROR BUTTON
 
 
 bool NOT_FIXABLE_ERROR = false;
@@ -38,10 +48,7 @@ bool NOT_FIXABLE_ERROR = false;
 bool state_water_level_bottom_sensor = false;
 bool state_water_level_top_sensor = false;
 //DISPLAY VARS
-#define ENABLE_I2C_DSIPLAY
-
 #ifdef ENABLE_I2C_DSIPLAY
-#define I2C_DISPLAY_ADDR 0x27
 LiquidCrystal_I2C lcd(I2C_DISPLAY_ADDR, 16, 2);
 uint8_t i2c_display_cross[8] = {0x0, 0x1b, 0xe, 0x4, 0xe, 0x1b, 0x0};
 #endif
@@ -49,13 +56,13 @@ uint8_t i2c_display_cross[8] = {0x0, 0x1b, 0xe, 0x4, 0xe, 0x1b, 0x0};
 
 //VALVE VARS
 #define AUTO_OFF_CURRENT_MIDDLE_COUNT 3
-#define AUTO_OFF_TIME_IN_SEC ((WATER_REFILL_TANK_SIZE_L*WATER_REFILL_TANK_SIZE_MULTIPLIER)/ WATER_FLOW_RATE_ML_S)
+unsigned long AUTO_OFF_TIME_IN_SEC = ((WATER_REFILL_TANK_SIZE_L*WATER_REFILL_TANK_SIZE_MULTIPLIER*1000)/ WATER_FLOW_RATE_ML_S);
 bool valve_state = false;
 float last_values_middle[AUTO_OFF_CURRENT_MIDDLE_COUNT] = { AUTO_OFF_CURRENT_MIDDLE };
 int middle_counter = 0;
 int middle_value_current = AUTO_OFF_CURRENT_MIDDLE*AUTO_OFF_CURRENT_MIDDLE_COUNT;
 long on_time = 0;
-const unsigned long AUTO_OFF_TIMER_INTERVALL = AUTO_OFF_TIME_IN_SEC*1000UL; //
+unsigned long AUTO_OFF_TIMER_INTERVALL = AUTO_OFF_TIME_IN_SEC*1000UL; //
 //ACS VARS
 float gfLineVoltage = 235.0f;
 // typical effective Voltage in Germany
@@ -71,7 +78,7 @@ const float gfACS712_Factor = 27.03f;
 unsigned long gulSamplePeriod_us = 100000;  // 100ms is 5 cycles at 50Hz and 6 cycles at 60Hz
  int giADCOffset = 512;                      // initial digital zero of the arduino input from ACS712
 
- static unsigned long lastmillis; 
+  static unsigned long lastmillis; 
   static unsigned long lastmillis_disp_refresh;
   static unsigned long lastmillis_disp_light; 
   #define DISP_DISPLAY_REFRESH (4*1000)
@@ -80,10 +87,142 @@ unsigned long gulSamplePeriod_us = 100000;  // 100ms is 5 cycles at 50Hz and 6 c
 
  //TODO SEND CAN MESSAGES
 //TODO AUTO REFILL AFTER TIME POSSIBLE
- 
+ void show_config_menu(){
+  
+//ENTER CONFIG MODE
+if(digitalRead(CONFIG_MODE_PIN) == LOW){
+  Serial.println("ENTER_CONFIG_MODE = 1");
+  #ifdef ENABLE_I2C_DSIPLAY
+ lcd.backlight();
+ lastmillis_disp_light = millis();
+  lcd.clear();
+  lcd.home();
+  lcd.print("----- INFO -----");
+   lcd.setCursor(0, 1);
+   lcd.print("ENTER CONFIG MODE");
+ #endif
+
+delay(1000);
+
+volatile bool in_conf_mode = true;
+volatile int men_pos = 0;
+while(in_conf_mode){
+  if(digitalRead(CONFIG_MODE_PIN) == LOW){men_pos++;}
+  if(men_pos == 4){in_conf_mode = false;break;}
+
+
+
+  if(men_pos == 0 && digitalRead(PART_FILLED_PIN) == HIGH && digitalRead(NOT_OFF_PIN) == LOW){
+  WATER_FLOW_RATE_ML_S += 0.1f;
+  }else if(men_pos == 0 && digitalRead(PART_FILLED_PIN) == LOW && digitalRead(NOT_OFF_PIN) == HIGH){
+      WATER_FLOW_RATE_ML_S -= 0.1f;
+  }
+    if(men_pos == 1 && digitalRead(PART_FILLED_PIN) == HIGH && digitalRead(NOT_OFF_PIN) == LOW){
+  WATER_REFILL_TANK_SIZE_L += 0.1f;
+  }else if(men_pos == 1 && digitalRead(PART_FILLED_PIN) == LOW && digitalRead(NOT_OFF_PIN) == HIGH){
+      WATER_REFILL_TANK_SIZE_L -= 0.1f;
+  }
+
+      if(men_pos == 2 && digitalRead(PART_FILLED_PIN) == HIGH && digitalRead(NOT_OFF_PIN) == LOW){
+  WATER_REFILL_TANK_SIZE_MULTIPLIER += 0.01f;
+  }else if(men_pos == 2 && digitalRead(PART_FILLED_PIN) == LOW && digitalRead(NOT_OFF_PIN) == HIGH){
+      WATER_REFILL_TANK_SIZE_MULTIPLIER -= 0.01f;
+  }
+
+  
+      if(men_pos == 3 && digitalRead(PART_FILLED_PIN) == HIGH && digitalRead(NOT_OFF_PIN) == LOW){
+  AUTO_OFF_CURRENT_MIDDLE += 1.0f;
+  }else if(men_pos == 3 && digitalRead(PART_FILLED_PIN) == LOW && digitalRead(NOT_OFF_PIN) == HIGH){
+      AUTO_OFF_CURRENT_MIDDLE -= 1.0f;
+  }
+
+  if(WATER_FLOW_RATE_ML_S < 1.0f){WATER_FLOW_RATE_ML_S = 1.0f;}
+  if(WATER_REFILL_TANK_SIZE_L < 0.1f){WATER_REFILL_TANK_SIZE_L = 0.1f;}
+  if(WATER_REFILL_TANK_SIZE_MULTIPLIER < 0.8f){WATER_REFILL_TANK_SIZE_MULTIPLIER = 0.8f;}
+ if(AUTO_OFF_CURRENT_MIDDLE < 5.0f){AUTO_OFF_CURRENT_MIDDLE = 5.0f;}
+
+
+  if(men_pos == 0){
+    #ifdef ENABLE_I2C_DSIPLAY
+ lcd.backlight();
+ lastmillis_disp_light = millis();
+  lcd.clear();
+  lcd.home();
+  lcd.print("REFILL FLOW RATE");
+   lcd.setCursor(0, 1);
+   lcd.print("" + String(WATER_FLOW_RATE_ML_S) + " ML/S");
+ #endif
+  }
+     if(men_pos == 1){
+    #ifdef ENABLE_I2C_DSIPLAY
+ lcd.backlight();
+ lastmillis_disp_light = millis();
+  lcd.clear();
+  lcd.home();
+  lcd.print("REFILL TANK SIZE");
+   lcd.setCursor(0, 1);
+   lcd.print("" + String( WATER_REFILL_TANK_SIZE_L) + " L");
+ #endif
+  }
+
+       if(men_pos == 2){
+    #ifdef ENABLE_I2C_DSIPLAY
+ lcd.backlight();
+ lastmillis_disp_light = millis();
+  lcd.clear();
+  lcd.home();
+  lcd.print("TIME MULTIPLIER");
+   lcd.setCursor(0, 1);
+   lcd.print("" + String(WATER_REFILL_TANK_SIZE_MULTIPLIER) + " %");
+ #endif
+  }
+
+       if(men_pos == 3){
+    #ifdef ENABLE_I2C_DSIPLAY
+ lcd.backlight();
+ lastmillis_disp_light = millis();
+  lcd.clear();
+  lcd.home();
+  lcd.print("VALVE POWER CONS");
+   lcd.setCursor(0, 1);
+   lcd.print("" + String(AUTO_OFF_CURRENT_MIDDLE) + " Watt");
+ #endif
+  }
+
+
+  
+
+  
+  delay(100);
+}
+//SAFE TO EEPROM
+int addr_put = 8;
+ EEPROM.put(addr_put, WATER_FLOW_RATE_ML_S);
+ addr_put+=sizeof(WATER_FLOW_RATE_ML_S);
+  EEPROM.put(addr_put, WATER_REFILL_TANK_SIZE_L);
+ addr_put+=sizeof(float);
+  EEPROM.put(addr_put, WATER_REFILL_TANK_SIZE_MULTIPLIER);
+ addr_put+=sizeof(float);
+  EEPROM.put(addr_put, AUTO_OFF_CURRENT_MIDDLE);
+ addr_put+=sizeof(float);
+}
+  }
 void setup()
 {
+
+ 
 Serial.begin(115200);
+/*
+if(CAN0.begin(MCP_ANY, CAN_100KBPS, MCP_8MHZ) == CAN_OK){
+  Serial.println("MCP2515 Initialized Successfully!");
+  CAN_SETUP_SUCC = true;
+CAN0.setMode(MCP_NORMAL); 
+}else{
+  Serial.println("Error Initializing MCP2515...");
+  CAN_SETUP_SUCC = false;
+}
+*/ 
+  delay(100);
 
 //FAIL RESET SCHALTUNG
 #ifdef ENABLE_ERROR_MANUAL_RESET
@@ -153,7 +292,32 @@ bool state_water_level_top_sensor = false;
 
 pinMode(PART_FILLED_PIN, INPUT);
 digitalWrite(PART_FILLED_PIN, HIGH);
+pinMode(NOT_OFF_PIN, INPUT);
+digitalWrite(NOT_OFF_PIN,HIGH);
+pinMode(CONFIG_MODE_PIN, INPUT);
+digitalWrite(CONFIG_MODE_PIN,HIGH);
 
+
+
+//LOAD VALUES
+int addr_get = 8;
+ EEPROM.get(addr_get, WATER_FLOW_RATE_ML_S);
+addr_get += sizeof(WATER_FLOW_RATE_ML_S);
+ EEPROM.get(addr_get, WATER_REFILL_TANK_SIZE_L);
+addr_get += sizeof(WATER_REFILL_TANK_SIZE_L);
+ EEPROM.get(addr_get, WATER_REFILL_TANK_SIZE_MULTIPLIER);
+addr_get += sizeof(WATER_REFILL_TANK_SIZE_MULTIPLIER);
+ EEPROM.get(addr_get, AUTO_OFF_CURRENT_MIDDLE);
+addr_get += sizeof(AUTO_OFF_CURRENT_MIDDLE);
+
+show_config_menu();
+
+//CALC IMPORTANT VALUES AFTER LOAD
+  AUTO_OFF_TIME_IN_SEC = ((WATER_REFILL_TANK_SIZE_L*WATER_REFILL_TANK_SIZE_MULTIPLIER*1000)/ WATER_FLOW_RATE_ML_S);
+  AUTO_OFF_TIMER_INTERVALL = AUTO_OFF_TIME_IN_SEC*1000UL;
+middle_value_current = AUTO_OFF_CURRENT_MIDDLE*AUTO_OFF_CURRENT_MIDDLE_COUNT;
+
+  
 Serial.println("-- AquaCPU - REFILL UNIT --");
 Serial.println("-- Version : " + String(VERSION) + " --");
 Serial.println("AUTO_OFF_TIMER = " + String(AUTO_OFF_TIME_IN_SEC));
@@ -180,6 +344,18 @@ state_water_level_top_sensor = !digitalRead(LEVEL_SENSOR_TOP_PIN);
 #endif  
   }
 
+void send_can_message(int _id, byte _data[],int _len){
+
+
+ //  byte sndStat = CAN0.sendMsgBuf(0x100, 0, _len, _data);
+ // if(sndStat == CAN_OK){
+ //   Serial.println("Message Sent Successfully!");
+ // } else {
+ //   Serial.println("Error Sending Message...");
+ // }
+
+  
+}
 
 
 void set_valve_state(bool _en){
@@ -249,8 +425,23 @@ read_level_sensors();
 
 if(NOT_FIXABLE_ERROR){Serial.println("ERR");set_valve_state(false); delay(500);return;}
 
+//STOP BUTTON
+if(digitalRead(NOT_OFF_PIN) == LOW){
+  if(valve_state){
+     #ifdef ENABLE_I2C_DSIPLAY
+ lcd.backlight();
+ lastmillis_disp_light = millis();
+  lcd.clear();
+  lcd.home();
+  lcd.print("----- INFO -----");
+   lcd.setCursor(0, 1);
+   lcd.print("CANCEL REFILL");
+ #endif
 
-
+ 
+    }
+  set_valve_state(false);
+}
 
 //INVALID SENSOR STATE CHECK
 if(state_water_level_top_sensor == 0 && state_water_level_bottom_sensor == 1){
@@ -258,8 +449,11 @@ if(state_water_level_top_sensor == 0 && state_water_level_bottom_sensor == 1){
   set_not_fixable_error(0); 
 }
 
-
-
+//ENABLE BACKLIGHT ONLY
+if(digitalRead(CONFIG_MODE_PIN) == LOW || digitalRead(PART_FILLED_PIN) == LOW){
+lcd.backlight();
+lastmillis_disp_light = millis();
+}
 
 //PARTLY REFILL BUTTON
 if(digitalRead(PART_FILLED_PIN) == LOW && !valve_state && state_water_level_top_sensor == 1 && state_water_level_bottom_sensor == 0){
@@ -278,12 +472,12 @@ if(digitalRead(PART_FILLED_PIN) == LOW && !valve_state && state_water_level_top_
 
 
 
-  
+  //IF REFILL IN PROGRESS
   if(valve_state){
 lastmillis_disp_light = millis();
+//TANK FULL -> STOP REFIL CLOSE VALVE
 if(state_water_level_top_sensor == 0 ){
    Serial.println("INFO - WATER TANK FULL - VALVE OFF"); 
-   
  #ifdef ENABLE_I2C_DSIPLAY
  lcd.backlight();
  lastmillis_disp_light = millis();
@@ -295,7 +489,8 @@ if(state_water_level_top_sensor == 0 ){
  #endif
  set_valve_state(false);
 }
-    
+
+//CHECK FOR FLOWING WATT
 last_values_middle[middle_counter++] = acs_measure_loop();
 middle_value_current = 0.0f;
  for(int i = 0; i < AUTO_OFF_CURRENT_MIDDLE_COUNT; i++){
@@ -304,31 +499,38 @@ middle_value_current = 0.0f;
 if(middle_counter >= AUTO_OFF_CURRENT_MIDDLE_COUNT){
  middle_counter = 0;
   }
- // Serial.println(middle_value_current);
-  //NO CHECK IF HIGHER
+  //NO CHECK IF HIGHER THAN THE MIN AMP
   if(middle_value_current < AUTO_OFF_CURRENT_MIDDLE*AUTO_OFF_CURRENT_MIDDLE_COUNT || middle_value_current < 0.0f){
     valve_state=false;
  digitalWrite(VALVE_PIN,valve_state);
  Serial.println("ERROR - VALVE UNDERCURRENT SENSE - VALVE OFF"); 
  set_not_fixable_error(2);
   }
+  
   //CHECK TIME
-
-  if ( millis() - lastmillis > AUTO_OFF_TIMER_INTERVALL )
-  {
+  if ( millis() - lastmillis > AUTO_OFF_TIMER_INTERVALL ){
  valve_state=false;
-  valve_state=false;
  digitalWrite(VALVE_PIN,valve_state);
  Serial.println("ERROR - VALVE TIMER OVERFLOW - VALVE OFF"); 
  set_not_fixable_error(1);
   }
 
 
-delay(50);
-
+delay(100);
+//SHOW LEFT REFILL TIME (ESTIMATED)
+  #ifdef ENABLE_I2C_DSIPLAY
+ lcd.backlight();
+ lastmillis_disp_light = millis();
+  lcd.clear();
+  lcd.home();
+  lcd.print("RUN REFILL FULL");
+   lcd.setCursor(0, 1);
+   lcd.print("IN MAX:" + String((AUTO_OFF_TIMER_INTERVALL - ( millis() - lastmillis))/(1000)));
+   delay(2000);
+ #endif
 
 }else{
-  
+  //START REFILL PROCESS AT EMPTY SENSOR STATE
   if(state_water_level_top_sensor == 1 && state_water_level_bottom_sensor == 1){
    Serial.println("INFO - WATER TANK EMPTY - VALVE ON"); 
     #ifdef ENABLE_I2C_DSIPLAY
@@ -336,15 +538,16 @@ delay(50);
  lastmillis_disp_light = millis();
   lcd.clear();
   lcd.home();
-  lcd.print("----- INFO -----");
+  lcd.print("  TANK REFILL  ");
    lcd.setCursor(0, 1);
-   lcd.print("TANK REFILL STATED");
+   lcd.print("STARTED");
+   delay(2000);
  #endif
 enable_auto_refill();
   }
 
 
-
+//SHOW TANK FILL STATE AT IDLE, NO FILL JUST FOR INFO
  #ifdef ENABLE_I2C_DSIPLAY
  if(millis() - lastmillis_disp_refresh > DISP_DISPLAY_REFRESH){
   lastmillis_disp_refresh = millis();
@@ -362,11 +565,10 @@ enable_auto_refill();
     lcd.print("UNKNOWN STATE");
     }
  }
-
 #endif
 
 }
-
+//BACKLIGHT OFF TIMER
 #ifdef ENABLE_I2C_DSIPLAY
 if(millis() - lastmillis_disp_light > DISP_DISPLAY_LIGHT){lcd.noBacklight();}
 #endif
