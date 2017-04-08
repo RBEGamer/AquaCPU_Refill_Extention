@@ -11,6 +11,12 @@
 #include <mcp_can.h>
 #include <SPI.h>
 
+union{
+    char myByte[4];
+    long mylong;
+}foo;
+
+
 MCP_CAN CAN0(10);     // Set CS to pin 10
 bool CAN_SETUP_SUCC = false;
 #define CAN_SPEED CAN_100KBPS
@@ -98,6 +104,10 @@ static unsigned long lastmillis_disp_light;
 #define DISP_DISPLAY_LIGHT (10*1000)
 //#define _DEBUG_EEPROM_RESET
 
+
+
+//FUNC DESC 
+ void read_level_sensors();
 //TODO SEND CAN MESSAGES
 //TODO AUTO REFILL AFTER TIME POSSIBLE
 void show_config_menu() {
@@ -123,7 +133,7 @@ void show_config_menu() {
       if (digitalRead(CONFIG_MODE_PIN) == LOW) {
         men_pos++;
       }
-      if (men_pos == 4) {
+      if (men_pos == 5) {
         in_conf_mode = false;
         break;
       }
@@ -216,7 +226,18 @@ void show_config_menu() {
       }
 
 
-
+ if (men_pos == 4) {
+   read_level_sensors();
+#ifdef ENABLE_I2C_DSIPLAY
+        lcd.backlight();
+        lastmillis_disp_light = millis();
+        lcd.clear();
+        lcd.home();
+        lcd.print("SENSOR STATES");
+        lcd.setCursor(0, 1);
+        lcd.print("BOTTOM:" + String((byte)state_water_level_bottom_sensor) + " TOP" + String((byte)state_water_level_top_sensor));
+#endif
+      }
 
 
       delay(100);
@@ -235,6 +256,25 @@ void show_config_menu() {
 }
 void setup()
 {
+#ifdef ENABLE_I2C_DSIPLAY
+  lcd.begin();
+  lcd.backlight();
+  lcd.clear();
+  lcd.home();
+#endif
+
+#ifdef ENABLE_I2C_DSIPLAY
+  lcd.backlight();
+  lcd.createChar(0, i2c_display_cross);
+  lcd.clear();
+  lcd.home();
+  lcd.print("AquaCPU-Refill");
+  lcd.setCursor(0, 1);
+  lcd.print("VERSION: " + String(VERSION));
+  delay(1000);
+#endif
+
+
 
 
   Serial.begin(115200);
@@ -246,7 +286,6 @@ void setup()
   EEPROM.begin();
 #ifdef _DEBUG_EEPROM_RESET
   EEPROM.write(0, 0); //ERROR FLAG
-
 #endif
   int ret = EEPROM.read(0);
   if (ret == 1 ) {
@@ -264,22 +303,6 @@ void setup()
 #else
   NOT_FIXABLE_ERROR = false;
 #endif
-
-
-
-#ifdef ENABLE_I2C_DSIPLAY
-  lcd.begin();
-  lcd.backlight();
-  lcd.createChar(0, i2c_display_cross);
-  lcd.clear();
-  lcd.home();
-  lcd.print("AquaCPU-Refill");
-  lcd.setCursor(0, 1);
-  lcd.print("VERSION: " + String(VERSION));
-  delay(1000);
-#endif
-
-
 #ifdef ENABLE_I2C_DSIPLAY
   if (NOT_FIXABLE_ERROR) {
     lcd.backlight();
@@ -294,7 +317,8 @@ void setup()
 #endif
 
 while(NOT_FIXABLE_ERROR){
-  
+  delay(500);
+  continue;
   }
 
   //SEND DEBUG OVER CAN
@@ -421,7 +445,6 @@ void send_can_message(int _id, bool _val) {
   if (CAN_SETUP_SUCC) {
     return;
   }
-
   byte sndStat = CAN0.sendMsgBuf(_id, 0, 1, (byte)_val);
   if (sndStat == CAN_OK) {
  //   Serial.println("Message Sent Successfully!");
@@ -429,19 +452,41 @@ void send_can_message(int _id, bool _val) {
     Serial.println("Error Sending Message...");
   }
 }
+void send_can_message(int _id, byte _val) {
+  if (CAN_SETUP_SUCC) {
+    return;
+  }
+  byte sndStat = CAN0.sendMsgBuf(_id, 0, 1,_val);
+  if (sndStat == CAN_OK) {
+ //   Serial.println("Message Sent Successfully!");
+  } else {
+    Serial.println("Error Sending Message...");
+  }
+}
+
+union
+{
+   long a;
+   byte b[4];
+} stuff;
+
+//stuff sendThis;
 
 
 void send_can_message(int _id,unsigned long _val) {
   if (CAN_SETUP_SUCC) {
     return;
   }
-
-  byte sndStat = CAN0.sendMsgBuf(_id, 0, 1, (byte)1);
-  if (sndStat == CAN_OK) {
-   Serial.println("Message Sent Successfully!");
- } else {
-  Serial.println("Error Sending Message...");
-  }
+  
+ // stuff sendThis;
+//sendThis.a = _val;
+//myUnion.myLong = _val;
+  //byte sndStat = CAN0.sendMsgBuf(_id, 0, 4, myUnion.myByte);
+ // if (sndStat == CAN_OK) {
+//   Serial.println("Message Sent Successfully!");
+ //} else {
+ // Serial.println("Error Sending Message...");
+ // }
 }
 
 
@@ -648,16 +693,16 @@ send_can_message(CAN_BUS_ID_MANUAL_REFILL, true);
       lcd.setCursor(0, 1);
       if (state_water_level_top_sensor == 0 && state_water_level_bottom_sensor == 0) {
         lcd.print("COMPLETE FILLED");
-        send_can_message(CAN_BUS_TANK_STATE, 3);
+        send_can_message(CAN_BUS_TANK_STATE, (byte)3);
       } else  if (state_water_level_top_sensor == 1 && state_water_level_bottom_sensor == 0) {
         lcd.print("PARTLY FILLED");
-        send_can_message(CAN_BUS_TANK_STATE, 2);
+        send_can_message(CAN_BUS_TANK_STATE, (byte)2);
       } else if (state_water_level_top_sensor == 1 && state_water_level_bottom_sensor == 1) {
         lcd.print("EMPTY");
-        send_can_message(CAN_BUS_TANK_STATE, 1);
+        send_can_message(CAN_BUS_TANK_STATE, (byte)1);
       } else {
         lcd.print("UNKNOWN STATE");
-        send_can_message(CAN_BUS_TANK_STATE, 0);
+        send_can_message(CAN_BUS_TANK_STATE, (byte)0);
       }
     }
 #endif
