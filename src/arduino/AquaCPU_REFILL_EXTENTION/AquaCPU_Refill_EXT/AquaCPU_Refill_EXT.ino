@@ -3,6 +3,7 @@
    https://github.com/fdebrabander/Arduino-LiquidCrystal-I2C-library
    ACS712 CODE http://blog.thesen.eu
 */
+
 #define VERSION "1.0a"
 
 #include <EEPROM.h>
@@ -11,10 +12,12 @@
 #include <mcp_can.h>
 #include <SPI.h>
 
-union{
+union long_conv{
     char myByte[4];
-    long mylong;
-}foo;
+    unsigned long mylong;
+};
+
+
 
 
 MCP_CAN CAN0(10);     // Set CS to pin 10
@@ -438,7 +441,7 @@ void send_can_message(int _id, float _val) {
   if (sndStat == CAN_OK) {
  //   Serial.println("Message Sent Successfully!");
   } else {
-    Serial.println("Error Sending Message...");
+   // Serial.println("Error Sending Message...");
   }
 }
 void send_can_message(int _id, bool _val) {
@@ -449,7 +452,7 @@ void send_can_message(int _id, bool _val) {
   if (sndStat == CAN_OK) {
  //   Serial.println("Message Sent Successfully!");
   } else {
-    Serial.println("Error Sending Message...");
+   // Serial.println("Error Sending Message...");
   }
 }
 void send_can_message(int _id, byte _val) {
@@ -460,33 +463,22 @@ void send_can_message(int _id, byte _val) {
   if (sndStat == CAN_OK) {
  //   Serial.println("Message Sent Successfully!");
   } else {
-    Serial.println("Error Sending Message...");
+   // Serial.println("Error Sending Message...");
   }
 }
-
-union
-{
-   long a;
-   byte b[4];
-} stuff;
-
-//stuff sendThis;
-
 
 void send_can_message(int _id,unsigned long _val) {
   if (CAN_SETUP_SUCC) {
     return;
   }
-  
- // stuff sendThis;
-//sendThis.a = _val;
-//myUnion.myLong = _val;
-  //byte sndStat = CAN0.sendMsgBuf(_id, 0, 4, myUnion.myByte);
- // if (sndStat == CAN_OK) {
-//   Serial.println("Message Sent Successfully!");
- //} else {
+  long_conv dba;
+dba.mylong = _val;
+  byte sndStat = CAN0.sendMsgBuf(_id, 0, 4, dba.myByte);
+  if (sndStat == CAN_OK) {
+ //  Serial.println("Message Sent Successfully!");
+ } else {
  // Serial.println("Error Sending Message...");
- // }
+  }
 }
 
 
