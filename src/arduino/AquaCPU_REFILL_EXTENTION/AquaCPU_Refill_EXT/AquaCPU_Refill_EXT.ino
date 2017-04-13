@@ -5,12 +5,12 @@
 */
 
 #define VERSION "1.0a"
-#define EXTENTION_ID_BYTE 1
+#define EXTENTION_ID_TYPE_BYTE 1
 
 
 
-#if EXTENTION_ID_BYTE == 0
-#error "BLA"
+#if EXTENTION_ID_TYPE_BYTE == 0
+#error"BLA"
 #endif
 #include <EEPROM.h>
 #include <Wire.h>
@@ -46,9 +46,9 @@ long unsigned int rxId;
 unsigned char len = 0;
 unsigned char rxBuf[8];
 char msgString[128];
-#define CAN_BUS_ID_GENERAL_ERR 0x142
-#define CAN_BUS_ID_GENERAL_STOP 0x143
-#define CAN_BUS_ID_GENERAL_REGISTER_ID 0x144
+#define CAN_BUS_ID_GENERAL_ERR 0x001
+#define CAN_BUS_ID_GENERAL_STOP 0x002
+#define CAN_BUS_ID_GENERAL_REGISTER_ID 0x003
 
 #define CAN_BUS_ID_REFILL_STARTED 0x100
 #define CAN_BUS_ID_REFILL_STOP 0x101

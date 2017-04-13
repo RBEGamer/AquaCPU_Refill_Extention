@@ -1,0 +1,21 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.26020.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AquaCPU_SMS_EXTENTION", "AquaCPU_SMS_EXTENTION\AquaCPU_SMS_EXTENTION.vcxproj", "{31B2E7F8-181B-4001-954D-ED49D243CBE0}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|VisualGDB = Debug|VisualGDB
+		Release|VisualGDB = Release|VisualGDB
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{31B2E7F8-181B-4001-954D-ED49D243CBE0}.Debug|VisualGDB.ActiveCfg = Debug|VisualGDB
+		{31B2E7F8-181B-4001-954D-ED49D243CBE0}.Debug|VisualGDB.Build.0 = Debug|VisualGDB
+		{31B2E7F8-181B-4001-954D-ED49D243CBE0}.Release|VisualGDB.ActiveCfg = Release|VisualGDB
+		{31B2E7F8-181B-4001-954D-ED49D243CBE0}.Release|VisualGDB.Build.0 = Release|VisualGDB
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
