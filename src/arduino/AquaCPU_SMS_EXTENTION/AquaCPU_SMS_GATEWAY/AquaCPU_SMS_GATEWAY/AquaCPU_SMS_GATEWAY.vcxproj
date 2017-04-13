@@ -11,9 +11,17 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{31B2E7F8-181B-4001-954D-ED49D243CBE0}</ProjectGuid>
+    <ProjectGuid>{6DECD52E-B253-4C17-8246-B839ACEA44DD}</ProjectGuid>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|VisualGDB'">
+    <GNUToolchainPrefix />
+    <GNUCompilerType>GCC</GNUCompilerType>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|VisualGDB'">
+    <GNUToolchainPrefix />
+    <GNUCompilerType>GCC</GNUCompilerType>
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
@@ -22,16 +30,26 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|VisualGDB'">
     <GNUConfigurationType>Debug</GNUConfigurationType>
-    <Toolchain>C:\SysGCC\raspberry</Toolchain>
+    <IsRemoteBuild>true</IsRemoteBuild>
+    <Toolchain>$(LOCALAPPDATA)\VisualGDB\ToolchainProfiles\192.168.178.63\gcc</Toolchain>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|VisualGDB'">
-    <Toolchain>C:\SysGCC\raspberry</Toolchain>
+    <IsRemoteBuild>true</IsRemoteBuild>
+    <Toolchain>$(LOCALAPPDATA)\VisualGDB\ToolchainProfiles\192.168.178.63\gcc</Toolchain>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|VisualGDB'">
     <ClCompile>
       <CPPLanguageStandard>GNUPP14</CPPLanguageStandard>
-      <AdditionalOptions>-std=c++11 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>-I/usr/local/include -L/usr/local/lib -lwiringPi %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>/usr3/rpi/include;%(ClCompile.AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>DEBUG=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <Link>
+      <AdditionalLinkerInputs>;%(Link.AdditionalLinkerInputs)</AdditionalLinkerInputs>
+      <LibrarySearchDirectories>/usr3/rpi/lib;%(Link.LibrarySearchDirectories)</LibrarySearchDirectories>
+      <AdditionalLibraryNames>;%(Link.AdditionalLibraryNames)</AdditionalLibraryNames>
+      <LinkerScript />
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|VisualGDB'">
     <ClCompile>
@@ -39,13 +57,13 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="AquaCPU_SMS_EXTENTION.cpp" />
+    <ClCompile Include="AquaCPU_SMS_GATEWAY.cpp" />
     <ClCompile Include="ini_parser.cpp" />
     <ClCompile Include="serialib.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="AquaCPU_SMS_EXTENTION-Debug.vgdbsettings" />
-    <None Include="AquaCPU_SMS_EXTENTION-Release.vgdbsettings" />
+    <None Include="AquaCPU_SMS_GATEWAY-Debug.vgdbsettings" />
+    <None Include="AquaCPU_SMS_GATEWAY-Release.vgdbsettings" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ini_parser.hpp" />

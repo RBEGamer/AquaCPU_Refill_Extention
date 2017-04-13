@@ -58,7 +58,7 @@ EINE CSV FILE FÜR JEDE EXTENTION MIT DEN MESSAGES
 #include <linux/can/raw.h>
 #include "serialib.h"
 #include "ini_parser.hpp"
-//#include <wiringPi.h>
+#include <wiringPi.h>
 
 
 namespace simple_logger {
@@ -72,8 +72,8 @@ namespace simple_logger {
 
 	enum LOG_TYPE
 	{
-		ERROR   = 0,
-		INFO    = 1,
+		ERROR = 0,
+		INFO = 1,
 		WARNING = 2
 	};
 	bool start_logger(const char* _path) {
@@ -110,14 +110,14 @@ namespace simple_logger {
 
 enum ENDIANNESS
 {
-	LITTE=0,
+	LITTE = 0,
 	BIG = 1
 };
 enum CAN_DATA_TYPES
 {
-	BOOL_1  = 0,
-	INT_2   = 1,
-	LONG_4  = 2,
+	BOOL_1 = 0,
+	INT_2 = 1,
+	LONG_4 = 2,
 	FLOAT_3 = 3,
 };
 struct CAN_MESSAGES_STRUCT
@@ -130,6 +130,25 @@ struct CAN_MESSAGES_STRUCT
 
 };
 
+union DATA_UNION
+{
+	__u8 byt[8];
+	float float_3;
+	int int_2;
+	long long_4;
+	bool bool_1;
+
+};
+
+
+
+//holds a can fraem with converted datatype
+struct CAN_PROCECCED_FRAME_STRUCT
+{
+	long can_id;
+	DATA_UNION data;
+	CAN_DATA_TYPES type;
+};
 
 struct UART_MESSAGES
 {
@@ -173,9 +192,9 @@ int count_chars_in_string(const std::string& _s, const char _c) {
 	return count;
 }
 bool check_for_only_numbers(const std::string& s) {
-//	char* p;
-//	strtod(s.c_str(), &p);
-//	return *p == 0;
+	//	char* p;
+	//	strtod(s.c_str(), &p);
+	//	return *p == 0;
 	// return !s.empty() && s.find_first_not_of("-.0123456789") == std::string::npos;
 	return true;
 }
@@ -184,14 +203,50 @@ bool check_for_only_numbers(const std::string& s) {
 
 //CAN FUNC
 
-
 void process_can_frame(can_frame& _frame) {
 
 	for (size_t i = 0; i < listen_can_messages.size(); i++)
 	{
 		if (_frame.can_id == listen_can_messages[i].listen_can_id) {
 			std::cout << listen_can_messages[i].message << std::endl;
-			sms_messages.push_back(listen_can_messages[i].message);
+				sms_messages.push_back(listen_can_messages[i].message);
+			DATA_UNION pdata;
+			if (listen_can_messages[i].byte_order == ENDIANNESS::BIG) {
+				pdata.byt[0] = _frame.data[7];
+				pdata.byt[1] = _frame.data[6];
+				pdata.byt[2] = _frame.data[5];
+				pdata.byt[3] = _frame.data[4];
+				pdata.byt[4] = _frame.data[3];
+				pdata.byt[5] = _frame.data[2];
+				pdata.byt[6] = _frame.data[1];
+				pdata.byt[7] = _frame.data[0];
+			}
+			else {
+				pdata.byt[0] = _frame.data[0];
+				pdata.byt[1] = _frame.data[1];
+				pdata.byt[2] = _frame.data[2];
+				pdata.byt[3] = _frame.data[3];
+				pdata.byt[4] = _frame.data[4];
+				pdata.byt[5] = _frame.data[5];
+				pdata.byt[6] = _frame.data[6];
+				pdata.byt[7] = _frame.data[7];
+			}
+
+
+
+
+			switch (listen_can_messages[i].type)
+			{
+			case CAN_DATA_TYPES::BOOL_1:std::cout << pdata.bool_1 << std::endl; break;
+			case CAN_DATA_TYPES::FLOAT_3:std::cout << pdata.float_3 << std::endl; break;
+			case CAN_DATA_TYPES::INT_2:std::cout << pdata.int_2 << std::endl; break;
+			case CAN_DATA_TYPES::LONG_4:std::cout << pdata.long_4 << std::endl; break;
+			default:
+				//TODO ADD SIMPLELOG MESSAGE
+				break;
+			}
+			//TODO CONVERT
+			int fif = 0;
 		}
 	}
 
@@ -242,27 +297,27 @@ void can_read_port()
 	struct can_frame frame_rd;
 	int recvbytes = 0;
 	read_can_port = 1;
-//while (read_can_port)
-//	{
-		struct timeval timeout = { 1, 0 };
-		fd_set readSet;
-		FD_ZERO(&readSet);
-		FD_SET(soc, &readSet);
-		if (select((soc + 1), &readSet, NULL, NULL, &timeout) >= 0)
+	//while (read_can_port)
+	//	{
+	struct timeval timeout = { 1, 0 };
+	fd_set readSet;
+	FD_ZERO(&readSet);
+	FD_SET(soc, &readSet);
+	if (select((soc + 1), &readSet, NULL, NULL, &timeout) >= 0)
+	{
+		if (!read_can_port)
 		{
-			if (!read_can_port)
+			//			break;
+		}
+		if (FD_ISSET(soc, &readSet))
+		{
+			recvbytes = read(soc, &frame_rd, sizeof(struct can_frame));
+			if (recvbytes)
 			{
-	//			break;
-			}
-			if (FD_ISSET(soc, &readSet))
-			{
-				recvbytes = read(soc, &frame_rd, sizeof(struct can_frame));
-				if (recvbytes)
-				{
 				//	printf("dlc = %d, data = %s\n", frame_rd.can_dlc, frame_rd.data);
-					process_can_frame(frame_rd);
-				}
+				process_can_frame(frame_rd);
 			}
+		}
 		//}
 	}
 }
@@ -279,7 +334,7 @@ void signalHandler(int signum) {
 	simple_logger::stop_log();
 
 
-	
+
 	can_close_port();
 	LS.Close();
 	std::cout << "Interrupt signal (" << signum << ") received.\n";
@@ -304,7 +359,7 @@ int main(int argc, char *argv[])
 	FRM::ini_parser* conf_parser = new FRM::ini_parser();
 	conf_parser->load_ini_file("./sms_gateway_conf.ini");
 
-	//wiringPiSetup();
+	//	wiringPiSetup();
 
 	//LOAD MESSAGE LIST CSV
 	std::string conf_csv = *conf_parser->get_value("path", "listen_gateay_list_csv");
@@ -499,7 +554,7 @@ int main(int argc, char *argv[])
 
 
 
-	
+
 	//sms_messages.push_back("1. TEST");
 	//sms_messages.push_back("2. TEST");
 	//sms_messages.push_back("3. TEST");
@@ -508,8 +563,10 @@ int main(int argc, char *argv[])
 
 	std::vector<UART_MESSAGES> uart_msg_queue;
 	int send_index = 0;
-	
-
+	//TODO NAKE A SEPERATE SETUP FUNC FOR GSM WITH ERROR MESSAGE
+	//TODO READ PIN FROM CONF FILE
+	//TODO USE WIRING PI FOR RESET AND SWITCH FOR EN SENING + LED
+	//WAIT AT SETUP FOR RDY
 	UART_MESSAGES tmp;
 	tmp.to_send = "AT";
 	tmp.expected = "OK";
@@ -526,7 +583,8 @@ int main(int argc, char *argv[])
 	tmp.send = false;
 	tmp.noCR = false;
 	uart_msg_queue.push_back(tmp);
-	tmp.to_send = "AT+CSMP=17,167,0,16";
+//	tmp.to_send = "AT+CSMP=17,167,0,16"; //TODO SET THIS AS OPTION
+	tmp.to_send = "AT";
 	tmp.expected = "OK";
 	tmp.send = false;
 	tmp.noCR = false;
@@ -536,7 +594,7 @@ int main(int argc, char *argv[])
 	tmp.send = false;
 	tmp.noCR = true;
 	uart_msg_queue.push_back(tmp);
-	tmp.to_send = "HalloWelt\x1A";
+	tmp.to_send = "SMS_GATEWAY:STARTED\x1A";
 	tmp.expected = "OK";
 	tmp.send = false;
 	uart_msg_queue.push_back(tmp);
@@ -552,7 +610,7 @@ int main(int argc, char *argv[])
 	while (true)
 	{
 		can_read_port();
-
+	
 		if (sms_messages.size() > 0 && send_index != 4) {
 			uart_msg_queue.at(5).to_send = sms_messages.back() + "\x1A";
 			uart_msg_queue.at(5).send = false;
@@ -563,35 +621,66 @@ int main(int argc, char *argv[])
 				uart_msg_queue.at(i).send = false;
 			}
 		}
-	
 
 
 
-			if (!uart_msg_queue.at(send_index).send) {
 
-				if (send_index == 4 && sms_messages.size() <= 0) {
+		if (!uart_msg_queue.at(send_index).send) {
+
+			if (send_index == 4 && sms_messages.size() <= 0) {
 				//	continue;
-				}
-
-				std::cout << "SEND:" << uart_msg_queue.at(send_index).to_send;
-				LS.WriteString((uart_msg_queue.at(send_index).to_send + "\r\n").c_str());
-				uart_msg_queue.at(send_index).send = true;
 			}
-			Ret = LS.ReadString(Buffer, '\r\n', 128, 50);                                // Read a maximum of 128 characters with a timeout of 5 seconds
-			if (Ret > 0) {
-				if (std::string(Buffer) == (uart_msg_queue.at(send_index).expected + "\r\n")) {
-					//if (send_index == 5) { sms_messages.pop_back(); }
-					std::cout << "epxetec message rec:" << Buffer << std::endl;
+
+			std::cout << "SEND:" << uart_msg_queue.at(send_index).to_send;
+			LS.WriteString((uart_msg_queue.at(send_index).to_send + "\r\n").c_str());
+			uart_msg_queue.at(send_index).send = true;
+		}
+		Ret = LS.ReadString(Buffer, '\r\n', 128, 50UL);                                // Read a maximum of 128 characters with a timeout of 5 seconds
+		if (Ret > 0) {
+			if (std::string(Buffer) == (uart_msg_queue.at(send_index).expected + "\r\n")) {
+				//if (send_index == 5) { sms_messages.pop_back(); }
+				std::cout << "epxetec message rec:" << Buffer << std::endl;
+				if (send_index < uart_msg_queue.size() - 1) {
+					send_index++;
+					std::cout << "inc" << send_index << std::endl;
+				}
+				else {
+					//LOAD NEW MESSGAE
+					if (sms_messages.size() > 0) {
+						uart_msg_queue.at(5).to_send = sms_messages.back() + "\x1A";
+						uart_msg_queue.at(5).send = false;
+						//sms_messages.pop_back();
+						send_index = 4;
+						for (size_t i = send_index; i < uart_msg_queue.size(); i++)
+						{
+							uart_msg_queue.at(i).send = false;
+						}
+					}
+				}
+			}
+			else {
+				std::cout << " message rec:" << Buffer << std::endl;
+			}
+		}
+		else
+		{
+			//IF WE DONT HAVE A CR LIKE "> " we have in the struct a flag nad recieve only the needed bytes
+			if (uart_msg_queue.at(send_index).noCR) {
+
+				if (std::string(Buffer) == uart_msg_queue.at(send_index).expected) {
+					//	if (send_index == 5) { sms_messages.pop_back(); }
 					if (send_index < uart_msg_queue.size() - 1) {
 						send_index++;
 						std::cout << "inc" << send_index << std::endl;
+						LS.WriteString((uart_msg_queue.at(send_index).to_send + "\r\n").c_str());
+						uart_msg_queue.at(send_index).send = true;
 					}
 					else {
 						//LOAD NEW MESSGAE
 						if (sms_messages.size() > 0) {
 							uart_msg_queue.at(5).to_send = sms_messages.back() + "\x1A";
 							uart_msg_queue.at(5).send = false;
-							//sms_messages.pop_back();
+							//	sms_messages.pop_back();
 							send_index = 4;
 							for (size_t i = send_index; i < uart_msg_queue.size(); i++)
 							{
@@ -600,44 +689,13 @@ int main(int argc, char *argv[])
 						}
 					}
 				}
-				else {
-					std::cout << " message rec:" << Buffer << std::endl;
+				Ret = LS.Read(Buffer, uart_msg_queue.at(send_index).expected.size() + 1, 50UL);
+				if (Ret > 0) {
+					std::cout << "SINGLE message rec:" << Buffer << std::endl;
 				}
 			}
-			else
-			{
-				//IF WE DONT HAVE A CR LIKE "> " we have in the struct a flag nad recieve only the needed bytes
-				if (uart_msg_queue.at(send_index).noCR) {
+		}
 
-					if (std::string(Buffer) == uart_msg_queue.at(send_index).expected) {
-					//	if (send_index == 5) { sms_messages.pop_back(); }
-						if (send_index < uart_msg_queue.size() - 1) {
-							send_index++;
-							std::cout << "inc" << send_index << std::endl;
-							LS.WriteString((uart_msg_queue.at(send_index).to_send + "\r\n").c_str());
-							uart_msg_queue.at(send_index).send = true;
-						}
-						else {
-							//LOAD NEW MESSGAE
-							if (sms_messages.size() > 0) {
-								uart_msg_queue.at(5).to_send = sms_messages.back() + "\x1A";
-								uart_msg_queue.at(5).send = false;
-							//	sms_messages.pop_back();
-								send_index = 4;
-								for (size_t i = send_index; i < uart_msg_queue.size(); i++)
-								{
-									uart_msg_queue.at(i).send = false;
-								}
-							}
-						}
-					}
-					Ret = LS.Read(Buffer, uart_msg_queue.at(send_index).expected.size() + 1, 50);
-					if (Ret > 0) {
-						std::cout << "SINGLE message rec:" << Buffer << std::endl;
-					}
-				}
-			}
-			
 	};
 	can_close_port();
 	LS.Close();
