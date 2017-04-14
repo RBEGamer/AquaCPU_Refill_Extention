@@ -23,6 +23,16 @@ A automatic aquarium refiller with extra fallout detection.
 
 
 
+
+
+# FEATURES REFILL UNIT
+* Automaitc refill of your tank
+* Time failsafe
+* Pump fail detection failsafe
+* Esay Tank setup
+* Sensor state failsafe
+
+
 # SOFTWARE
 
 *http://cristiansteib.github.io/Sim800l
