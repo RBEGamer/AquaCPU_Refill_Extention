@@ -28,3 +28,9 @@ A automatic aquarium refiller with extra fallout detection.
 
 
 # IMAGES
+
+## Final Hardware setup (glued on wood for testing)
+![Gopher image](/documentation/images/final_hardware.jpeg)
+
+## Water level sensors, mounted on the reserve water tank
+![Gopher image](/documentation/images/water_sensors.jpeg)
