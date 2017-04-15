@@ -8,7 +8,7 @@ A automatic aquarium refiller with extra fallout detection.
 * Esay Tank setup
 * Sensor state failsafe
 * FPGA based sensor state failsafe
-
+* CAN bus interface for interfacing with other AquaCPU Devices
 
 # PARTS
 * 2 Water level sensors for the refill tank
@@ -21,7 +21,7 @@ A automatic aquarium refiller with extra fallout detection.
 * 4 pusbuttons (with pull up resistors)
 * 8 Luster Terminals
 * 1 5V 2A Power Supply
-
+* 1 ADS current sensor breakout
 
 # SOFTWARE
 
