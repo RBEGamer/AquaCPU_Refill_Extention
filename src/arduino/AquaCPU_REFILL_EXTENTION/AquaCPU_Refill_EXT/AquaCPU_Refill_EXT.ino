@@ -27,9 +27,6 @@ union float_conv
 	char myByte[3];
 	float myfloat;
 };
-
-
-
 union int_conv
 {
 	char myByte[2];
@@ -49,7 +46,7 @@ char msgString[128];
 #define CAN_BUS_ID_GENERAL_ERR 0x001
 #define CAN_BUS_ID_GENERAL_STOP 0x002
 #define CAN_BUS_ID_GENERAL_REGISTER_ID 0x003
-
+// REFILL EXTENTION SPCIFIC CAN IDs
 #define CAN_BUS_ID_REFILL_STARTED 0x100
 #define CAN_BUS_ID_REFILL_STOP 0x101
 #define CAN_BUS_ID_MANUAL_REFILL 0x102
