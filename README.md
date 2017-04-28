@@ -8,13 +8,13 @@ A automatic aquarium refiller with extra fallout detection.
 * Esay Tank setup
 * Sensor state failsafe
 * FPGA based sensor state failsafe
-* CAN bus interface for interfacing with other AquaCPU Devices
+* [OPTIONAL] CAN bus interface for interfacing with other AquaCPU Devices
 
 # PARTS
 * 2 Water level sensors for the refill tank
 * 2 3D printed, water level sensor holders (See  http://www.thingiverse.com/thing:2218807)
 * 1 Arduino Nano/Mini
-* 1 MCP2515 Can breakout board
+* [OPTIONAL]  1 MCP2515 Can breakout board
 * 1 Solid-State-Relais (or normal relais with transistor driver)
 * 1 16x4 I2C Display (a 3d printed holder : http://www.thingiverse.com/thing:2218670)
 * 1 Magnetic Valve 230V/12V
