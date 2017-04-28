@@ -27,7 +27,11 @@ I used the system to fill automaticly the 4.5L tank of my RedSea Reefer Nano. Tw
 * 1 ADS current sensor breakout
 
 # SOFTWARE
-
+* Download the Arduino-Sketch or the complete VS-Project
+* Setup the pinconfig : 66-73
+* Setup the invert setting : 74 - 75
+* Setup the ACS712 sensor settings : 78
+* Power all up and hold the config button to setup the other settings
 
 
 # IMAGES
