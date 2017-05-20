@@ -35,7 +35,8 @@ I used the system to fill automaticly the 4.5L tank of my RedSea Reefer Nano. Tw
 
 
 # IMAGES
-
+## Final simple case
+![Gopher image](/documentation/IMAGES/case.jpg)
 ## Final Hardware setup (glued on wood for testing)
 ![Gopher image](/documentation/IMAGES/final_hardware.jpeg)
 
